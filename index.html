@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Blackscreen – click anywhere to go fullscreen</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#000000">
+    <link rel="icon" type="image/png" href="favicon16.png" sizes="16x16">
+    <link rel="icon" type="image/png" href="favicon32.png" sizes="32x32">
+    <link rel="icon" type="image/png" href="homescreen48.png" sizes="48x48">
+    <link rel="icon" type="image/png" href="homescreen72.png" sizes="72x72">
+    <link rel="icon" type="image/png" href="homescreen96.png" sizes="96x96">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" sizes="any">
+    <link rel="manifest" href="manifest.json">
+    <style>
+      body,
+      html {
+        background: #000;
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <script>
+      navigator.serviceWorker.register('service-worker.js')
+
+      function getSupported(options, checker) {
+        for (const option of options) {
+          if (checker(option)) {
+            return option
+          }
+        }
+      }
+      const requestFullScreen = getSupported(
+        [
+          'requestFullscreen',
+          'mozRequestFullScreen',
+          'webkitRequestFullscreen',
+          'webkitRequestFullScreen',
+          'msRequestFullscreen'
+        ],
+        function(method) {
+          return method in Element.prototype
+        }
+      )
+      const exitFullScreen = getSupported(
+        [
+          'exitFullscreen',
+          'mozExitFullScreen',
+          'webkitExitFullscreen',
+          'webkitExitFullScreen',
+          'msExitFullscreen'
+        ],
+        function(method) {
+          return method in document
+        }
+      )
+      const changeEventName = getSupported(
+        [
+          'fullscreenchange',
+          'webkitfullscreenchange',
+          'mozfullscreenchange',
+          'MSFullscreenChange'
+        ],
+        function(event) {
+          return `on${event}` in document
+        }
+      )
+      const fullScreenElement = getSupported(
+        [
+          'fullscreenElement',
+          'webkitFullscreenElement',
+          'mozFullScreenElement',
+          'msFullscreenElement'
+        ],
+        function(e) {
+          return e in document
+        }
+      )
+
+      function isInFullScreen() {
+        return null !== document[fullScreenElement]
+      }
+
+      const cursorTimeout = 4000
+
+      function attemptHideCursor() {
+        resetCursorHideTimer()
+        window.addEventListener('mousemove', resetCursorHideTimer)
+      }
+
+      function noLongerAttemptHideCursor() {
+        clearTimeout(hideTimeout)
+        window.removeEventListener('mousemove', resetCursorHideTimer)
+        window.removeEventListener('mousemove', handleShowCursor)
+        showCursor()
+      }
+
+      function showCursor() {
+        document.body.style.removeProperty('cursor')
+      }
+
+      function handleShowCursor() {
+        showCursor()
+
+        if (isInFullScreen()) {
+          attemptHideCursor()
+        }
+      }
+
+      function hideCursor() {
+        document.body.style.cursor = 'none'
+      }
+
+      function handleHideCursor() {
+        hideCursor()
+        window.removeEventListener('mousemove', resetCursorHideTimer)
+        window.addEventListener('mousemove', handleShowCursor, {
+          once: true
+        })
+      }
+
+      let hideTimeout
+      function resetCursorHideTimer() {
+        clearTimeout(hideTimeout)
+        hideTimeout = setTimeout(handleHideCursor, cursorTimeout)
+      }
+
+      document.addEventListener(changeEventName, () => {
+
+        if (isInFullScreen()) {
+          attemptHideCursor()
+        } else {
+          noLongerAttemptHideCursor()
+        }
+      })
+
+      document.body.onclick = function() {
+        if (isInFullScreen()) {
+          document[exitFullScreen]()
+        } else {
+          document.body[requestFullScreen]()
+        }
+      }
+    </script>
+  </body>
+</html>
